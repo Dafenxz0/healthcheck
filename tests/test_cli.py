@@ -60,8 +60,8 @@ class CliTests(unittest.TestCase):
             report = _format_report(audit_repository(repo_path))
             result = audit_repository(repo_path).to_dict()
 
-            self.assertIn("Checks: 9 passed, 0 failed", report)
-            self.assertEqual(result["passed"], 9)
+            self.assertIn("Checks: 13 passed, 0 failed", report)
+            self.assertEqual(result["passed"], 13)
             self.assertEqual(result["failed"], 0)
 
     def test_config_flag_is_used_by_cli(self) -> None:
@@ -116,6 +116,12 @@ def _complete_repo(repo_path: Path) -> Path:
     workflow_dir = repo_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "test.yml").write_text("name: test\n", encoding="utf-8")
+    (repo_path / ".github" / "CODEOWNERS").write_text("* @maintainer\n", encoding="utf-8")
+    issue_template_dir = repo_path / ".github" / "ISSUE_TEMPLATE"
+    issue_template_dir.mkdir()
+    (issue_template_dir / "bug.md").write_text("# Bug\n", encoding="utf-8")
+    (repo_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("## Tests\n", encoding="utf-8")
+    (repo_path / ".github" / "dependabot.yml").write_text("version: 2\n", encoding="utf-8")
     return repo_path
 
 

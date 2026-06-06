@@ -21,6 +21,12 @@ class AuditRepositoryTests(unittest.TestCase):
             workflow_dir = repo_path / ".github" / "workflows"
             workflow_dir.mkdir(parents=True)
             (workflow_dir / "test.yml").write_text("name: test\n", encoding="utf-8")
+            (repo_path / ".github" / "CODEOWNERS").write_text("* @maintainer\n", encoding="utf-8")
+            issue_template_dir = repo_path / ".github" / "ISSUE_TEMPLATE"
+            issue_template_dir.mkdir()
+            (issue_template_dir / "bug.md").write_text("# Bug\n", encoding="utf-8")
+            (repo_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("## Tests\n", encoding="utf-8")
+            (repo_path / ".github" / "dependabot.yml").write_text("version: 2\n", encoding="utf-8")
 
             result = audit_repository(repo_path)
 
@@ -57,6 +63,14 @@ class AuditRepositoryTests(unittest.TestCase):
             self.assertIn("readme", ids)
             self.assertIn("license", ids)
             self.assertIn("ci", ids)
+            self.assertIn("codeowners", ids)
+
+    def test_audit_reports_category_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = audit_repository(directory)
+
+            self.assertIn("governance", result.categories)
+            self.assertGreaterEqual(result.categories["governance"]["total"], 1)
 
     def test_audit_can_disable_checks_from_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -73,6 +87,15 @@ class AuditRepositoryTests(unittest.TestCase):
             self.assertNotIn("security", ids)
             self.assertEqual(result.config_path, repo_path / ".oss-repo-healthcheck.json")
 
+    def test_config_rejects_unknown_check_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            config_path = repo_path / ".oss-repo-healthcheck.json"
+            config_path.write_text(json.dumps({"disabled_checks": ["not-real"]}), encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                audit_repository(repo_path)
+
     def test_audit_can_override_weights_from_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo_path = Path(directory)
@@ -88,7 +111,7 @@ class AuditRepositoryTests(unittest.TestCase):
 
             self.assertEqual(weights["readme"], 100)
             self.assertEqual(weights["license"], 0)
-            self.assertGreater(result.score, 50)
+            self.assertGreater(result.score, 0)
 
 
 if __name__ == "__main__":

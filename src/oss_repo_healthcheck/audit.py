@@ -12,11 +12,21 @@ class CheckResult:
     name: str
     status: str
     detail: str
+    category: str = "general"
     weight: int = 10
 
     @property
     def passed(self) -> bool:
         return self.status == "pass"
+
+
+@dataclass(frozen=True)
+class CheckDefinition:
+    id: str
+    name: str
+    category: str
+    default_weight: int
+    runner: Callable[[Path], CheckResult]
 
 
 @dataclass(frozen=True)
@@ -45,6 +55,18 @@ class AuditResult:
     def failed_count(self) -> int:
         return sum(1 for check in self.checks if not check.passed)
 
+    @property
+    def categories(self) -> dict[str, dict[str, int]]:
+        summary: dict[str, dict[str, int]] = {}
+        for check in self.checks:
+            category = summary.setdefault(check.category, {"passed": 0, "failed": 0, "total": 0})
+            category["total"] += 1
+            if check.passed:
+                category["passed"] += 1
+            else:
+                category["failed"] += 1
+        return summary
+
     def to_dict(self, *, only_failures: bool = False) -> dict[str, object]:
         checks = self.checks
         if only_failures:
@@ -55,6 +77,7 @@ class AuditResult:
             "score": self.score,
             "passed": self.passed_count,
             "failed": self.failed_count,
+            "categories": self.categories,
             "checks": [asdict(check) for check in checks],
         }
 
@@ -77,21 +100,10 @@ def audit_repository(path: str | Path, *, config_path: str | Path | None = None)
     if not repo_path.is_dir():
         raise NotADirectoryError(f"Repository path is not a directory: {repo_path}")
 
-    checks: tuple[Callable[[Path], CheckResult], ...] = (
-        _check_readme,
-        _check_license,
-        _check_contributing,
-        _check_security_policy,
-        _check_changelog,
-        _check_ci,
-        _check_tests,
-        _check_package_metadata,
-        _check_release_notes,
-    )
     config = load_config(repo_path, config_path=config_path)
     results = []
-    for check in checks:
-        result = check(repo_path)
+    for definition in CHECK_DEFINITIONS:
+        result = definition.runner(repo_path)
         if result.id in config.disabled_checks:
             continue
         results.append(
@@ -100,6 +112,7 @@ def audit_repository(path: str | Path, *, config_path: str | Path | None = None)
                 result.name,
                 result.status,
                 result.detail,
+                category=definition.category,
                 weight=config.weight_for(result),
             )
         )
@@ -130,11 +143,21 @@ def load_config(repo_path: Path, *, config_path: str | Path | None = None) -> Au
     if any(value < 0 for value in weights.values()):
         raise ValueError("weights must be zero or greater.")
 
+    known_ids = {definition.id for definition in CHECK_DEFINITIONS}
+    unknown_ids = (set(disabled_checks) | set(weights)) - known_ids
+    if unknown_ids:
+        unknown = ", ".join(sorted(unknown_ids))
+        raise ValueError(f"Unknown check ID in config: {unknown}")
+
     return AuditConfig(
         disabled_checks=frozenset(disabled_checks),
         weights=weights,
         path=candidate,
     )
+
+
+def list_checks() -> tuple[CheckDefinition, ...]:
+    return CHECK_DEFINITIONS
 
 
 def _check_readme(path: Path) -> CheckResult:
@@ -237,6 +260,58 @@ def _check_release_notes(path: Path) -> CheckResult:
     )
 
 
+def _check_codeowners(path: Path) -> CheckResult:
+    return _exists(
+        path,
+        ("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"),
+        "codeowners",
+        "Code owners",
+        "Add CODEOWNERS so review ownership is clear.",
+    )
+
+
+def _check_issue_templates(path: Path) -> CheckResult:
+    issue_template_dir = path / ".github" / "ISSUE_TEMPLATE"
+    if issue_template_dir.exists() and any(item.is_file() for item in issue_template_dir.iterdir()):
+        return CheckResult("issue-templates", "Issue templates", "pass", "Found issue templates.")
+    return _exists(
+        path,
+        ("ISSUE_TEMPLATE.md", ".github/ISSUE_TEMPLATE.md"),
+        "issue-templates",
+        "Issue templates",
+        "Add issue templates to make incoming reports easier to triage.",
+    )
+
+
+def _check_pr_template(path: Path) -> CheckResult:
+    pr_template_dir = path / ".github" / "PULL_REQUEST_TEMPLATE"
+    if pr_template_dir.exists() and any(item.is_file() for item in pr_template_dir.iterdir()):
+        return CheckResult("pull-request-template", "Pull request template", "pass", "Found pull request templates.")
+    return _exists(
+        path,
+        ("PULL_REQUEST_TEMPLATE.md", ".github/PULL_REQUEST_TEMPLATE.md", "docs/PULL_REQUEST_TEMPLATE.md"),
+        "pull-request-template",
+        "Pull request template",
+        "Add a pull request template with testing and review guidance.",
+    )
+
+
+def _check_dependency_updates(path: Path) -> CheckResult:
+    return _exists(
+        path,
+        (
+            ".github/dependabot.yml",
+            ".github/dependabot.yaml",
+            "renovate.json",
+            ".renovaterc",
+            ".renovaterc.json",
+        ),
+        "dependency-updates",
+        "Dependency update automation",
+        "Add Dependabot or Renovate configuration for dependency update visibility.",
+    )
+
+
 def _exists(
     path: Path,
     names: tuple[str, ...],
@@ -249,3 +324,20 @@ def _exists(
         if (path / name).exists():
             return CheckResult(check_id, check_name, "pass", f"Found {name}.", weight=weight)
     return CheckResult(check_id, check_name, "fail", missing_detail, weight=weight)
+
+
+CHECK_DEFINITIONS: tuple[CheckDefinition, ...] = (
+    CheckDefinition("readme", "README documentation", "documentation", 15, _check_readme),
+    CheckDefinition("license", "License", "governance", 15, _check_license),
+    CheckDefinition("contributing", "Contribution guide", "collaboration", 10, _check_contributing),
+    CheckDefinition("security", "Security policy", "governance", 10, _check_security_policy),
+    CheckDefinition("changelog", "Changelog", "release", 10, _check_changelog),
+    CheckDefinition("ci", "Continuous integration", "automation", 15, _check_ci),
+    CheckDefinition("tests", "Tests", "quality", 15, _check_tests),
+    CheckDefinition("package-metadata", "Package metadata", "packaging", 10, _check_package_metadata),
+    CheckDefinition("release-notes", "Release notes", "release", 10, _check_release_notes),
+    CheckDefinition("codeowners", "Code owners", "governance", 10, _check_codeowners),
+    CheckDefinition("issue-templates", "Issue templates", "collaboration", 10, _check_issue_templates),
+    CheckDefinition("pull-request-template", "Pull request template", "collaboration", 10, _check_pr_template),
+    CheckDefinition("dependency-updates", "Dependency update automation", "automation", 10, _check_dependency_updates),
+)
