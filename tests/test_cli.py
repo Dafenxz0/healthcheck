@@ -52,6 +52,17 @@ class CliTests(unittest.TestCase):
             self.assertIn("License", names)
             self.assertNotIn("README documentation", names)
 
+    def test_report_includes_check_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = _complete_repo(Path(directory))
+
+            report = _format_report(audit_repository(repo_path))
+            result = audit_repository(repo_path).to_dict()
+
+            self.assertIn("Checks: 9 passed, 0 failed", report)
+            self.assertEqual(result["passed"], 9)
+            self.assertEqual(result["failed"], 0)
+
 
 def _complete_repo(repo_path: Path) -> Path:
     (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")

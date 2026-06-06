@@ -74,6 +74,7 @@ def _format_report(result, *, only_failures: bool = False) -> str:
         lines.append(f"{label:<5} {check.name}")
         lines.append(f"      {check.detail}")
     lines.append("")
+    lines.append(f"Checks: {result.passed_count} passed, {result.failed_count} failed")
     lines.append(f"Score: {result.score}/100")
     return "\n".join(lines)
 

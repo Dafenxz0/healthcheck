@@ -34,6 +34,14 @@ class AuditResult:
     def has_failures(self) -> bool:
         return any(check.status == "fail" for check in self.checks)
 
+    @property
+    def passed_count(self) -> int:
+        return sum(1 for check in self.checks if check.passed)
+
+    @property
+    def failed_count(self) -> int:
+        return sum(1 for check in self.checks if not check.passed)
+
     def to_dict(self, *, only_failures: bool = False) -> dict[str, object]:
         checks = self.checks
         if only_failures:
@@ -41,6 +49,8 @@ class AuditResult:
         return {
             "path": str(self.path),
             "score": self.score,
+            "passed": self.passed_count,
+            "failed": self.failed_count,
             "checks": [asdict(check) for check in checks],
         }
 

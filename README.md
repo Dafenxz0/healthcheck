@@ -93,6 +93,7 @@ WARN  Security policy
 PASS  Continuous integration
 PASS  Tests
 
+Checks: 4 passed, 1 failed
 Score: 76/100
 ```
 
