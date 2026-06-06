@@ -5,8 +5,9 @@ open-source repository hygiene.
 
 `oss-repo-healthcheck` scans a repository and reports whether common maintainer
 signals are present: README, license, security policy, contribution docs, CI,
-tests, changelog, package metadata, and release notes. It is intentionally
-dependency-free and works offline.
+tests, changelog, package metadata, release notes, ownership, collaboration
+templates, and dependency update automation. It is intentionally dependency-free
+and works offline.
 
 ## Why this exists
 
@@ -71,6 +72,24 @@ Render a Markdown table for pull request comments:
 oss-repo-healthcheck --format markdown
 ```
 
+Write a report to a file:
+
+```bash
+oss-repo-healthcheck --format markdown --output healthcheck.md
+```
+
+List available check IDs:
+
+```bash
+oss-repo-healthcheck --list-checks
+```
+
+Create a starter config:
+
+```bash
+oss-repo-healthcheck --init-config
+```
+
 Use a config file:
 
 ```bash
@@ -90,6 +109,10 @@ The current version looks for:
 - Test directory or test files
 - Package metadata
 - Release notes or GitHub release workflow
+- CODEOWNERS
+- Issue templates
+- Pull request template
+- Dependabot or Renovate configuration
 
 Checks are intentionally simple and transparent. The goal is a practical first
 pass, not a replacement for human review.
@@ -117,11 +140,11 @@ to make the score reflect what matters most in your ecosystem.
 ```text
 oss-repo-healthcheck: .
 
-PASS  README documentation
-PASS  License
-WARN  Security policy
-PASS  Continuous integration
-PASS  Tests
+PASS  [documentation] README documentation
+PASS  [governance] License
+FAIL  [governance] Security policy
+PASS  [automation] Continuous integration
+PASS  [quality] Tests
 
 Checks: 4 passed, 1 failed
 Score: 76/100
