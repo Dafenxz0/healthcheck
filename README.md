@@ -90,6 +90,18 @@ Create a starter config:
 oss-repo-healthcheck --init-config
 ```
 
+Show commit activity charts:
+
+```bash
+oss-repo-healthcheck --metrics --metrics-days 30
+```
+
+Combine health checks and activity metrics in one Markdown report:
+
+```bash
+oss-repo-healthcheck --metrics --include-health --format markdown --output repo-report.md
+```
+
 Use a config file:
 
 ```bash
@@ -134,6 +146,22 @@ root when it exists. You can also pass a custom path with `--config`.
 
 Use `disabled_checks` for checks that do not apply to a project, and `weights`
 to make the score reflect what matters most in your ecosystem.
+
+## Activity metrics
+
+The `--metrics` mode reads local Git history and reports practical repository
+activity signals:
+
+- Total commits in the selected window
+- Active commit days
+- Commits per week
+- ASCII or Markdown charts for commits by week
+- Top commit authors
+- Merged pull requests detected from merge commit messages
+- Weekly chart for detected merged pull requests
+
+Metrics are available in text, JSON, and Markdown formats. They work offline and
+do not require a GitHub token.
 
 ## Example
 

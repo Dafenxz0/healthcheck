@@ -11,6 +11,8 @@
 - Added checks for CODEOWNERS, issue templates, pull request templates, and dependency update automation.
 - Added `--list-checks`, `--init-config`, and `--output` for maintainer workflows.
 - Added GitHub collaboration templates and Dependabot configuration to this repository.
+- Added offline Git activity metrics with commit charts, author summaries, and detected merged PR charts.
+- Added `--metrics`, `--metrics-days`, and `--include-health` for combined health and activity reports.
 
 ## 0.1.0
 
