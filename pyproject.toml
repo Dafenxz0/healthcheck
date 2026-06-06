@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "oss-repo-healthcheck"
 version = "0.1.0"
-description = "A small CLI audit tool for open-source repository maintainer hygiene."
+description = "A dependency-free CLI dashboard for open-source repository health and Git activity."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
   { name = "Dafenx" }
 ]
-keywords = ["open-source", "maintainers", "repository", "audit", "cli"]
+keywords = ["open-source", "maintainers", "repository", "audit", "cli", "git", "metrics"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",

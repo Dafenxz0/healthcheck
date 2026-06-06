@@ -1,20 +1,36 @@
 # oss-repo-healthcheck
 
-A small command-line audit tool for maintainers who want a quick, local read on
-open-source repository hygiene.
+`oss-repo-healthcheck` is a dependency-free maintainer dashboard for open-source
+repositories. It combines repository hygiene checks with lightweight Git
+activity metrics, so maintainers can quickly answer two practical questions:
 
-`oss-repo-healthcheck` scans a repository and reports whether common maintainer
-signals are present: README, license, security policy, contribution docs, CI,
-tests, changelog, package metadata, release notes, ownership, collaboration
-templates, and dependency update automation. It is intentionally dependency-free
-and works offline.
+- Is this repository set up for contributors, releases, security, and CI?
+- Is the project active, and what does recent commit/PR activity look like?
+
+The CLI works offline against any local Git checkout. It can print human-readable
+reports, JSON for automation, or Markdown tables that are ready to paste into
+pull requests, release notes, onboarding docs, and maintainer reviews.
+
+Current reports cover:
+
+- Documentation, license, security, contribution, changelog, release, packaging,
+  test, and CI readiness
+- Governance and collaboration signals such as CODEOWNERS, issue templates, pull
+  request templates, and Dependabot/Renovate configuration
+- Configurable check weights and disabled checks for project-specific standards
+- Commit activity windows, commits per week, active days, top authors, and
+  locally detected merged pull requests
+- Text, JSON, Markdown, and file output for CI or recurring reports
 
 ## Why this exists
 
 Maintainers often inherit small gaps that make projects harder to review,
-contribute to, or keep healthy over time. This tool gives a fast checklist-style
-summary that can be run before a release, during onboarding, or as part of a
-maintenance sweep.
+contribute to, or keep healthy over time. Teams also need a low-friction way to
+summarize activity without opening dashboards or wiring up tokens.
+
+This tool gives a fast local snapshot that can be run before a release, during
+onboarding, as part of a maintenance sweep, or in CI as a lightweight quality
+gate.
 
 ## Install
 
@@ -29,6 +45,8 @@ python -m pip install -e .
 ```
 
 ## Usage
+
+Generate a full health report:
 
 Audit the current repository:
 
@@ -128,6 +146,24 @@ The current version looks for:
 
 Checks are intentionally simple and transparent. The goal is a practical first
 pass, not a replacement for human review.
+
+## Report outputs
+
+`oss-repo-healthcheck` is designed to fit into different maintainer workflows:
+
+- **Text:** quick terminal scans during local maintenance.
+- **JSON:** CI gates, dashboards, and scripts that need structured data.
+- **Markdown:** PR comments, issue updates, release preparation notes, and
+  contributor-facing summaries.
+- **Output files:** persistent reports such as `repo-report.md` or generated CI
+  artifacts.
+
+The combined report mode is useful when you want a single artifact with both
+repository readiness and recent project activity:
+
+```bash
+oss-repo-healthcheck --metrics --include-health --format markdown --output repo-report.md
+```
 
 ## Configuration
 

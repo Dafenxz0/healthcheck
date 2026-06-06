@@ -13,6 +13,7 @@
 - Added GitHub collaboration templates and Dependabot configuration to this repository.
 - Added offline Git activity metrics with commit charts, author summaries, and detected merged PR charts.
 - Added `--metrics`, `--metrics-days`, and `--include-health` for combined health and activity reports.
+- Expanded README, package metadata, and release notes to describe the maintainer dashboard workflow.
 
 ## 0.1.0
 
