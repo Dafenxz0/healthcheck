@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .audit import audit_repository, list_checks
+from .metrics import collect_commit_activity, render_markdown_metrics, render_text_metrics
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,6 +57,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the rendered report to a file instead of printing it.",
     )
     parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="Show Git commit activity metrics instead of the standard health report.",
+    )
+    parser.add_argument(
+        "--metrics-days",
+        type=int,
+        default=90,
+        metavar="DAYS",
+        help="Number of days to include in Git activity metrics. Defaults to 90.",
+    )
+    parser.add_argument(
+        "--include-health",
+        action="store_true",
+        help="When using --metrics, include the standard health report before the activity metrics.",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with status 1 when any check fails.",
@@ -88,8 +106,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote starter config to {config_path}")
         return 0
 
-    result = audit_repository(Path(args.path), config_path=args.config)
-    rendered = _render_result(result, output_format=output_format, only_failures=args.only_failures)
+    if args.metrics:
+        rendered = _render_metrics_report(
+            Path(args.path),
+            output_format=output_format,
+            days=args.metrics_days,
+            include_health=args.include_health,
+            config_path=args.config,
+            only_failures=args.only_failures,
+        )
+        result = audit_repository(Path(args.path), config_path=args.config) if args.include_health else None
+    else:
+        result = audit_repository(Path(args.path), config_path=args.config)
+        rendered = _render_result(result, output_format=output_format, only_failures=args.only_failures)
 
     if args.output:
         output_path = Path(args.output)
@@ -98,9 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(rendered)
 
-    if args.strict and result.has_failures:
+    if result is not None and args.strict and result.has_failures:
         return 1
-    if args.fail_under is not None and result.score < args.fail_under:
+    if result is not None and args.fail_under is not None and result.score < args.fail_under:
         return 1
     return 0
 
@@ -111,6 +140,32 @@ def _render_result(result, *, output_format: str, only_failures: bool = False) -
     if output_format == "markdown":
         return _format_markdown_report(result, only_failures=only_failures)
     return _format_report(result, only_failures=only_failures)
+
+
+def _render_metrics_report(
+    path: Path,
+    *,
+    output_format: str,
+    days: int,
+    include_health: bool = False,
+    config_path: str | None = None,
+    only_failures: bool = False,
+) -> str:
+    activity = collect_commit_activity(path, days=days)
+    if output_format == "json":
+        payload: dict[str, object] = {"activity": activity.to_dict()}
+        if include_health:
+            payload["health"] = audit_repository(path, config_path=config_path).to_dict(only_failures=only_failures)
+        return json.dumps(payload, indent=2)
+
+    metrics = render_markdown_metrics(activity) if output_format == "markdown" else render_text_metrics(activity)
+    if not include_health:
+        return metrics
+
+    health = audit_repository(path, config_path=config_path)
+    health_report = _render_result(health, output_format=output_format, only_failures=only_failures)
+    separator = "\n\n---\n\n" if output_format == "markdown" else "\n\n" + "=" * 72 + "\n\n"
+    return health_report + separator + metrics
 
 
 def _format_report(result, *, only_failures: bool = False) -> str:

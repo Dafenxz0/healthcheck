@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from oss_repo_healthcheck.__main__ import _format_markdown_report, _format_report, main
 from oss_repo_healthcheck import audit_repository
+from oss_repo_healthcheck.metrics import CommitActivity
 
 
 class CliTests(unittest.TestCase):
@@ -148,6 +149,42 @@ class CliTests(unittest.TestCase):
             self.assertIn("Wrote report", mocked_print.call_args.args[0])
             self.assertIn("## oss-repo-healthcheck:", output_path.read_text(encoding="utf-8"))
 
+    def test_metrics_outputs_text_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+
+            with patch("oss_repo_healthcheck.__main__.collect_commit_activity", return_value=_activity(repo_path)):
+                with patch("builtins.print") as mocked_print:
+                    exit_code = main([str(repo_path), "--metrics"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("Commits by week:", mocked_print.call_args.args[0])
+
+    def test_metrics_supports_json_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+
+            with patch("oss_repo_healthcheck.__main__.collect_commit_activity", return_value=_activity(repo_path)):
+                with patch("builtins.print") as mocked_print:
+                    exit_code = main([str(repo_path), "--metrics", "--format", "json"])
+
+            payload = json.loads(mocked_print.call_args.args[0])
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(payload["activity"]["total_commits"], 3)
+
+    def test_metrics_can_include_health_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+
+            with patch("oss_repo_healthcheck.__main__.collect_commit_activity", return_value=_activity(repo_path)):
+                with patch("builtins.print") as mocked_print:
+                    exit_code = main([str(repo_path), "--metrics", "--include-health"])
+
+            report = mocked_print.call_args.args[0]
+            self.assertEqual(exit_code, 0)
+            self.assertIn("oss-repo-healthcheck:", report)
+            self.assertIn("oss-repo-healthcheck activity:", report)
+
 
 def _complete_repo(repo_path: Path) -> Path:
     (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")
@@ -168,6 +205,19 @@ def _complete_repo(repo_path: Path) -> Path:
     (repo_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("## Tests\n", encoding="utf-8")
     (repo_path / ".github" / "dependabot.yml").write_text("version: 2\n", encoding="utf-8")
     return repo_path
+
+
+def _activity(path: Path) -> CommitActivity:
+    return CommitActivity(
+        path=path,
+        days=90,
+        total_commits=3,
+        active_days=2,
+        authors=(("Ada", 2), ("Linus", 1)),
+        weekly_commits=(("2026-06-01", 3),),
+        weekly_merged_pull_requests=(("2026-06-01", 1),),
+        merged_pull_requests=(12,),
+    )
 
 
 if __name__ == "__main__":
