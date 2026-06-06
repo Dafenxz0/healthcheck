@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from oss_repo_healthcheck.__main__ import main
+from oss_repo_healthcheck.__main__ import _format_report, main
+from oss_repo_healthcheck import audit_repository
 
 
 class CliTests(unittest.TestCase):
@@ -29,6 +30,27 @@ class CliTests(unittest.TestCase):
     def test_fail_under_rejects_out_of_range_threshold(self) -> None:
         with self.assertRaises(SystemExit):
             main(["--fail-under", "101"])
+
+    def test_only_failures_filters_human_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")
+
+            report = _format_report(audit_repository(repo_path), only_failures=True)
+
+            self.assertIn("License", report)
+            self.assertNotIn("PASS  README documentation", report)
+
+    def test_only_failures_filters_json_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")
+
+            result = audit_repository(repo_path).to_dict(only_failures=True)
+            names = {check["name"] for check in result["checks"]}
+
+            self.assertIn("License", names)
+            self.assertNotIn("README documentation", names)
 
 
 def _complete_repo(repo_path: Path) -> Path:

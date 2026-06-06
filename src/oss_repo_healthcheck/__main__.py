@@ -25,6 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print JSON instead of a human-readable report.",
     )
     parser.add_argument(
+        "--only-failures",
+        action="store_true",
+        help="Show only failing checks while keeping the overall score.",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with status 1 when any check fails.",
@@ -46,9 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     result = audit_repository(Path(args.path))
 
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2))
+        print(json.dumps(result.to_dict(only_failures=args.only_failures), indent=2))
     else:
-        print(_format_report(result))
+        print(_format_report(result, only_failures=args.only_failures))
 
     if args.strict and result.has_failures:
         return 1
@@ -57,9 +62,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _format_report(result) -> str:
+def _format_report(result, *, only_failures: bool = False) -> str:
     lines = [f"oss-repo-healthcheck: {result.path}", ""]
-    for check in result.checks:
+    checks = result.checks
+    if only_failures:
+        checks = tuple(check for check in checks if not check.passed)
+    if not checks:
+        lines.append("No failing checks.")
+    for check in checks:
         label = check.status.upper()
         lines.append(f"{label:<5} {check.name}")
         lines.append(f"      {check.detail}")

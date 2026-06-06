@@ -6,3 +6,4 @@
 - Added human-readable and JSON output.
 - Added strict mode for CI usage.
 - Added score threshold support with `--fail-under`.
+- Added `--only-failures` for focused CI and maintainer reports.

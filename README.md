@@ -53,6 +53,12 @@ Fail CI when the score drops below a threshold:
 oss-repo-healthcheck --fail-under 80
 ```
 
+Show only failing checks:
+
+```bash
+oss-repo-healthcheck --only-failures
+```
+
 Print machine-readable JSON:
 
 ```bash

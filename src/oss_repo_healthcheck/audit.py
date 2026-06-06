@@ -34,11 +34,14 @@ class AuditResult:
     def has_failures(self) -> bool:
         return any(check.status == "fail" for check in self.checks)
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self, *, only_failures: bool = False) -> dict[str, object]:
+        checks = self.checks
+        if only_failures:
+            checks = tuple(check for check in checks if not check.passed)
         return {
             "path": str(self.path),
             "score": self.score,
-            "checks": [asdict(check) for check in self.checks],
+            "checks": [asdict(check) for check in checks],
         }
 
 
