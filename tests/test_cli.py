@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from oss_repo_healthcheck.__main__ import _format_report, main
+from oss_repo_healthcheck.__main__ import _format_markdown_report, _format_report, main
 from oss_repo_healthcheck import audit_repository
 
 
@@ -80,6 +80,28 @@ class CliTests(unittest.TestCase):
             report = mocked_print.call_args.args[0]
             self.assertIn(f"Config: {config_path}", report)
             self.assertNotIn("License", report)
+
+    def test_markdown_report_renders_table(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")
+
+            report = _format_markdown_report(audit_repository(repo_path), only_failures=True)
+
+            self.assertIn("## oss-repo-healthcheck:", report)
+            self.assertIn("| Status | Check | Detail |", report)
+            self.assertIn("| FAIL | License | Add a clear open-source license. |", report)
+            self.assertNotIn("README documentation", report)
+
+    def test_markdown_format_is_available_from_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+
+            with patch("builtins.print") as mocked_print:
+                exit_code = main([str(repo_path), "--format", "markdown"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("| Status | Check | Detail |", mocked_print.call_args.args[0])
 
 
 def _complete_repo(repo_path: Path) -> Path:

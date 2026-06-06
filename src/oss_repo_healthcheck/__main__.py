@@ -25,6 +25,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print JSON instead of a human-readable report.",
     )
     parser.add_argument(
+        "--format",
+        choices=("text", "json", "markdown"),
+        default="text",
+        help="Output format. Defaults to text.",
+    )
+    parser.add_argument(
         "--only-failures",
         action="store_true",
         help="Show only failing checks while keeping the overall score.",
@@ -54,8 +60,11 @@ def main(argv: list[str] | None = None) -> int:
 
     result = audit_repository(Path(args.path), config_path=args.config)
 
-    if args.json:
+    output_format = "json" if args.json else args.format
+    if output_format == "json":
         print(json.dumps(result.to_dict(only_failures=args.only_failures), indent=2))
+    elif output_format == "markdown":
+        print(_format_markdown_report(result, only_failures=args.only_failures))
     else:
         print(_format_report(result, only_failures=args.only_failures))
 
@@ -83,6 +92,37 @@ def _format_report(result, *, only_failures: bool = False) -> str:
     lines.append(f"Checks: {result.passed_count} passed, {result.failed_count} failed")
     lines.append(f"Score: {result.score}/100")
     return "\n".join(lines)
+
+
+def _format_markdown_report(result, *, only_failures: bool = False) -> str:
+    checks = result.checks
+    if only_failures:
+        checks = tuple(check for check in checks if not check.passed)
+
+    lines = [
+        f"## oss-repo-healthcheck: `{result.path}`",
+        "",
+        f"**Score:** {result.score}/100",
+        f"**Checks:** {result.passed_count} passed, {result.failed_count} failed",
+    ]
+    if result.config_path:
+        lines.append(f"**Config:** `{result.config_path}`")
+    lines.extend(
+        [
+            "",
+            "| Status | Check | Detail |",
+            "| --- | --- | --- |",
+        ]
+    )
+    if not checks:
+        lines.append("| PASS | No failing checks | All enabled checks passed. |")
+    for check in checks:
+        lines.append(f"| {check.status.upper()} | {_markdown_cell(check.name)} | {_markdown_cell(check.detail)} |")
+    return "\n".join(lines)
+
+
+def _markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|")
 
 
 if __name__ == "__main__":

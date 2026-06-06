@@ -65,6 +65,12 @@ Print machine-readable JSON:
 oss-repo-healthcheck --json
 ```
 
+Render a Markdown table for pull request comments:
+
+```bash
+oss-repo-healthcheck --format markdown
+```
+
 Use a config file:
 
 ```bash
