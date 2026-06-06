@@ -29,11 +29,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit with status 1 when any check fails.",
     )
+    parser.add_argument(
+        "--fail-under",
+        type=int,
+        metavar="SCORE",
+        help="Exit with status 1 when the repository score is below SCORE.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.fail_under is not None and not 0 <= args.fail_under <= 100:
+        raise SystemExit("--fail-under must be between 0 and 100")
+
     result = audit_repository(Path(args.path))
 
     if args.json:
@@ -41,7 +50,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(_format_report(result))
 
-    return 1 if args.strict and result.has_failures else 0
+    if args.strict and result.has_failures:
+        return 1
+    if args.fail_under is not None and result.score < args.fail_under:
+        return 1
+    return 0
 
 
 def _format_report(result) -> str:

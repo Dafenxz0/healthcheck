@@ -47,6 +47,12 @@ Return a non-zero exit code when required checks fail:
 oss-repo-healthcheck --strict
 ```
 
+Fail CI when the score drops below a threshold:
+
+```bash
+oss-repo-healthcheck --fail-under 80
+```
+
 Print machine-readable JSON:
 
 ```bash
