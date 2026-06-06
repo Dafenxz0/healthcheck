@@ -48,6 +48,15 @@ class AuditRepositoryTests(unittest.TestCase):
 
             self.assertEqual(statuses["Continuous integration"], "pass")
 
+    def test_audit_exposes_stable_check_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = audit_repository(directory)
+            ids = {check.id for check in result.checks}
+
+            self.assertIn("readme", ids)
+            self.assertIn("license", ids)
+            self.assertIn("ci", ids)
+
 
 if __name__ == "__main__":
     unittest.main()
