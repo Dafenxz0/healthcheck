@@ -89,8 +89,8 @@ class CliTests(unittest.TestCase):
             report = _format_markdown_report(audit_repository(repo_path), only_failures=True)
 
             self.assertIn("## oss-repo-healthcheck:", report)
-            self.assertIn("| Status | Check | Detail |", report)
-            self.assertIn("| FAIL | License | Add a clear open-source license. |", report)
+            self.assertIn("| Status | Category | Check | Detail |", report)
+            self.assertIn("| FAIL | governance | License | Add a clear open-source license. |", report)
             self.assertNotIn("README documentation", report)
 
     def test_markdown_format_is_available_from_cli(self) -> None:
@@ -101,7 +101,52 @@ class CliTests(unittest.TestCase):
                 exit_code = main([str(repo_path), "--format", "markdown"])
 
             self.assertEqual(exit_code, 0)
-            self.assertIn("| Status | Check | Detail |", mocked_print.call_args.args[0])
+            self.assertIn("| Status | Category | Check | Detail |", mocked_print.call_args.args[0])
+
+    def test_list_checks_outputs_catalog(self) -> None:
+        with patch("builtins.print") as mocked_print:
+            exit_code = main(["--list-checks"])
+
+        self.assertEqual(exit_code, 0)
+        catalog = mocked_print.call_args.args[0]
+        self.assertIn("Available checks:", catalog)
+        self.assertIn("readme", catalog)
+        self.assertIn("dependency-updates", catalog)
+
+    def test_list_checks_supports_json(self) -> None:
+        with patch("builtins.print") as mocked_print:
+            exit_code = main(["--list-checks", "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        catalog = json.loads(mocked_print.call_args.args[0])
+        ids = {check["id"] for check in catalog}
+        self.assertIn("readme", ids)
+        self.assertIn("pull-request-template", ids)
+
+    def test_init_config_writes_starter_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "healthcheck.json"
+
+            with patch("builtins.print"):
+                exit_code = main(["--init-config", str(config_path)])
+
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(config["disabled_checks"], [])
+            self.assertIn("readme", config["weights"])
+
+    def test_output_writes_report_to_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory) / "repo"
+            repo_path.mkdir()
+            output_path = Path(directory) / "report.md"
+
+            with patch("builtins.print") as mocked_print:
+                exit_code = main([str(repo_path), "--format", "markdown", "--output", str(output_path)])
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("Wrote report", mocked_print.call_args.args[0])
+            self.assertIn("## oss-repo-healthcheck:", output_path.read_text(encoding="utf-8"))
 
 
 def _complete_repo(repo_path: Path) -> Path:

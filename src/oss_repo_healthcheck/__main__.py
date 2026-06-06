@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .audit import audit_repository
+from .audit import audit_repository, list_checks
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,8 +36,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only failing checks while keeping the overall score.",
     )
     parser.add_argument(
+        "--list-checks",
+        action="store_true",
+        help="List available check IDs, categories, and default weights, then exit.",
+    )
+    parser.add_argument(
+        "--init-config",
+        nargs="?",
+        const=".oss-repo-healthcheck.json",
+        metavar="PATH",
+        help="Write a starter JSON config file, then exit. Defaults to .oss-repo-healthcheck.json.",
+    )
+    parser.add_argument(
         "--config",
         help="Path to a JSON config file. Defaults to .oss-repo-healthcheck.json when present.",
+    )
+    parser.add_argument(
+        "--output",
+        help="Write the rendered report to a file instead of printing it.",
     )
     parser.add_argument(
         "--strict",
@@ -58,21 +74,43 @@ def main(argv: list[str] | None = None) -> int:
     if args.fail_under is not None and not 0 <= args.fail_under <= 100:
         raise SystemExit("--fail-under must be between 0 and 100")
 
-    result = audit_repository(Path(args.path), config_path=args.config)
-
     output_format = "json" if args.json else args.format
-    if output_format == "json":
-        print(json.dumps(result.to_dict(only_failures=args.only_failures), indent=2))
-    elif output_format == "markdown":
-        print(_format_markdown_report(result, only_failures=args.only_failures))
+
+    if args.list_checks:
+        print(_format_check_catalog(output_format))
+        return 0
+
+    if args.init_config:
+        config_path = Path(args.init_config)
+        if config_path.exists():
+            raise SystemExit(f"Config file already exists: {config_path}")
+        config_path.write_text(_format_starter_config(), encoding="utf-8")
+        print(f"Wrote starter config to {config_path}")
+        return 0
+
+    result = audit_repository(Path(args.path), config_path=args.config)
+    rendered = _render_result(result, output_format=output_format, only_failures=args.only_failures)
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.write_text(rendered + "\n", encoding="utf-8")
+        print(f"Wrote report to {output_path}")
     else:
-        print(_format_report(result, only_failures=args.only_failures))
+        print(rendered)
 
     if args.strict and result.has_failures:
         return 1
     if args.fail_under is not None and result.score < args.fail_under:
         return 1
     return 0
+
+
+def _render_result(result, *, output_format: str, only_failures: bool = False) -> str:
+    if output_format == "json":
+        return json.dumps(result.to_dict(only_failures=only_failures), indent=2)
+    if output_format == "markdown":
+        return _format_markdown_report(result, only_failures=only_failures)
+    return _format_report(result, only_failures=only_failures)
 
 
 def _format_report(result, *, only_failures: bool = False) -> str:
@@ -84,7 +122,7 @@ def _format_report(result, *, only_failures: bool = False) -> str:
         lines.append("No failing checks.")
     for check in checks:
         label = check.status.upper()
-        lines.append(f"{label:<5} {check.name}")
+        lines.append(f"{label:<5} [{check.category}] {check.name}")
         lines.append(f"      {check.detail}")
     lines.append("")
     if result.config_path:
@@ -110,19 +148,60 @@ def _format_markdown_report(result, *, only_failures: bool = False) -> str:
     lines.extend(
         [
             "",
-            "| Status | Check | Detail |",
-            "| --- | --- | --- |",
+            "| Status | Category | Check | Detail |",
+            "| --- | --- | --- | --- |",
         ]
     )
     if not checks:
-        lines.append("| PASS | No failing checks | All enabled checks passed. |")
+        lines.append("| PASS | all | No failing checks | All enabled checks passed. |")
     for check in checks:
-        lines.append(f"| {check.status.upper()} | {_markdown_cell(check.name)} | {_markdown_cell(check.detail)} |")
+        lines.append(
+            f"| {check.status.upper()} | {_markdown_cell(check.category)} | "
+            f"{_markdown_cell(check.name)} | {_markdown_cell(check.detail)} |"
+        )
     return "\n".join(lines)
 
 
 def _markdown_cell(value: str) -> str:
     return value.replace("|", "\\|")
+
+
+def _format_check_catalog(output_format: str) -> str:
+    checks = list_checks()
+    if output_format == "json":
+        return json.dumps(
+            [
+                {
+                    "id": check.id,
+                    "name": check.name,
+                    "category": check.category,
+                    "default_weight": check.default_weight,
+                }
+                for check in checks
+            ],
+            indent=2,
+        )
+    if output_format == "markdown":
+        lines = [
+            "| ID | Category | Weight | Name |",
+            "| --- | --- | --- | --- |",
+        ]
+        for check in checks:
+            lines.append(f"| `{check.id}` | {check.category} | {check.default_weight} | {check.name} |")
+        return "\n".join(lines)
+
+    lines = ["Available checks:"]
+    for check in checks:
+        lines.append(f"- {check.id:<22} {check.category:<14} weight={check.default_weight:<2} {check.name}")
+    return "\n".join(lines)
+
+
+def _format_starter_config() -> str:
+    config = {
+        "disabled_checks": [],
+        "weights": {check.id: check.default_weight for check in list_checks()},
+    }
+    return json.dumps(config, indent=2) + "\n"
 
 
 if __name__ == "__main__":
