@@ -30,6 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only failing checks while keeping the overall score.",
     )
     parser.add_argument(
+        "--config",
+        help="Path to a JSON config file. Defaults to .oss-repo-healthcheck.json when present.",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with status 1 when any check fails.",
@@ -48,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.fail_under is not None and not 0 <= args.fail_under <= 100:
         raise SystemExit("--fail-under must be between 0 and 100")
 
-    result = audit_repository(Path(args.path))
+    result = audit_repository(Path(args.path), config_path=args.config)
 
     if args.json:
         print(json.dumps(result.to_dict(only_failures=args.only_failures), indent=2))
@@ -74,6 +78,8 @@ def _format_report(result, *, only_failures: bool = False) -> str:
         lines.append(f"{label:<5} {check.name}")
         lines.append(f"      {check.detail}")
     lines.append("")
+    if result.config_path:
+        lines.append(f"Config: {result.config_path}")
     lines.append(f"Checks: {result.passed_count} passed, {result.failed_count} failed")
     lines.append(f"Score: {result.score}/100")
     return "\n".join(lines)

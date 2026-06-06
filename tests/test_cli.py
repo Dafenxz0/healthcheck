@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -62,6 +63,23 @@ class CliTests(unittest.TestCase):
             self.assertIn("Checks: 9 passed, 0 failed", report)
             self.assertEqual(result["passed"], 9)
             self.assertEqual(result["failed"], 0)
+
+    def test_config_flag_is_used_by_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            config_path = repo_path / "healthcheck.json"
+            config_path.write_text(
+                json.dumps({"disabled_checks": ["license"]}),
+                encoding="utf-8",
+            )
+
+            with patch("builtins.print") as mocked_print:
+                exit_code = main([str(repo_path), "--config", str(config_path)])
+
+            self.assertEqual(exit_code, 0)
+            report = mocked_print.call_args.args[0]
+            self.assertIn(f"Config: {config_path}", report)
+            self.assertNotIn("License", report)
 
 
 def _complete_repo(repo_path: Path) -> Path:

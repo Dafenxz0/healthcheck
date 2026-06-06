@@ -65,6 +65,12 @@ Print machine-readable JSON:
 oss-repo-healthcheck --json
 ```
 
+Use a config file:
+
+```bash
+oss-repo-healthcheck --config healthcheck.json
+```
+
 ## Checks
 
 The current version looks for:
@@ -81,6 +87,24 @@ The current version looks for:
 
 Checks are intentionally simple and transparent. The goal is a practical first
 pass, not a replacement for human review.
+
+## Configuration
+
+By default, the CLI will read `.oss-repo-healthcheck.json` from the repository
+root when it exists. You can also pass a custom path with `--config`.
+
+```json
+{
+  "disabled_checks": ["release-notes"],
+  "weights": {
+    "readme": 20,
+    "tests": 20
+  }
+}
+```
+
+Use `disabled_checks` for checks that do not apply to a project, and `weights`
+to make the score reflect what matters most in your ecosystem.
 
 ## Example
 

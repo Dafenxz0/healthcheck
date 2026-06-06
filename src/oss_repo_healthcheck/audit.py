@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class CheckResult:
 class AuditResult:
     path: Path
     checks: tuple[CheckResult, ...]
+    config_path: Path | None = None
 
     @property
     def score(self) -> int:
@@ -49,6 +51,7 @@ class AuditResult:
             checks = tuple(check for check in checks if not check.passed)
         return {
             "path": str(self.path),
+            "config_path": str(self.config_path) if self.config_path else None,
             "score": self.score,
             "passed": self.passed_count,
             "failed": self.failed_count,
@@ -56,7 +59,18 @@ class AuditResult:
         }
 
 
-def audit_repository(path: str | Path) -> AuditResult:
+@dataclass(frozen=True)
+class AuditConfig:
+    disabled_checks: frozenset[str] = frozenset()
+    weights: Mapping[str, int] | None = None
+    path: Path | None = None
+
+    def weight_for(self, check: CheckResult) -> int:
+        weights = self.weights or {}
+        return weights.get(check.id, check.weight)
+
+
+def audit_repository(path: str | Path, *, config_path: str | Path | None = None) -> AuditResult:
     repo_path = Path(path).resolve()
     if not repo_path.exists():
         raise FileNotFoundError(f"Repository path does not exist: {repo_path}")
@@ -74,10 +88,52 @@ def audit_repository(path: str | Path) -> AuditResult:
         _check_package_metadata,
         _check_release_notes,
     )
+    config = load_config(repo_path, config_path=config_path)
+    results = []
+    for check in checks:
+        result = check(repo_path)
+        if result.id in config.disabled_checks:
+            continue
+        results.append(
+            CheckResult(
+                result.id,
+                result.name,
+                result.status,
+                result.detail,
+                weight=config.weight_for(result),
+            )
+        )
 
     return AuditResult(
         path=repo_path,
-        checks=tuple(check(repo_path) for check in checks),
+        checks=tuple(results),
+        config_path=config.path,
+    )
+
+
+def load_config(repo_path: Path, *, config_path: str | Path | None = None) -> AuditConfig:
+    candidate = Path(config_path).resolve() if config_path else repo_path / ".oss-repo-healthcheck.json"
+    if not candidate.exists():
+        return AuditConfig()
+    with candidate.open(encoding="utf-8") as config_file:
+        data = json.load(config_file)
+    if not isinstance(data, dict):
+        raise ValueError("Healthcheck config must be a JSON object.")
+
+    disabled_checks = data.get("disabled_checks", [])
+    if not isinstance(disabled_checks, list) or not all(isinstance(item, str) for item in disabled_checks):
+        raise ValueError("disabled_checks must be a list of check IDs.")
+
+    weights = data.get("weights", {})
+    if not isinstance(weights, dict) or not all(isinstance(key, str) and isinstance(value, int) for key, value in weights.items()):
+        raise ValueError("weights must be an object mapping check IDs to integer weights.")
+    if any(value < 0 for value in weights.values()):
+        raise ValueError("weights must be zero or greater.")
+
+    return AuditConfig(
+        disabled_checks=frozenset(disabled_checks),
+        weights=weights,
+        path=candidate,
     )
 
 

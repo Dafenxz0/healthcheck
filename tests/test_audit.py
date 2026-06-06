@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -56,6 +57,38 @@ class AuditRepositoryTests(unittest.TestCase):
             self.assertIn("readme", ids)
             self.assertIn("license", ids)
             self.assertIn("ci", ids)
+
+    def test_audit_can_disable_checks_from_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            (repo_path / ".oss-repo-healthcheck.json").write_text(
+                json.dumps({"disabled_checks": ["release-notes", "security"]}),
+                encoding="utf-8",
+            )
+
+            result = audit_repository(repo_path)
+            ids = {check.id for check in result.checks}
+
+            self.assertNotIn("release-notes", ids)
+            self.assertNotIn("security", ids)
+            self.assertEqual(result.config_path, repo_path / ".oss-repo-healthcheck.json")
+
+    def test_audit_can_override_weights_from_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+            (repo_path / "README.md").write_text("# Project\n", encoding="utf-8")
+            config_path = repo_path / "healthcheck.json"
+            config_path.write_text(
+                json.dumps({"weights": {"readme": 100, "license": 0}}),
+                encoding="utf-8",
+            )
+
+            result = audit_repository(repo_path, config_path=config_path)
+            weights = {check.id: check.weight for check in result.checks}
+
+            self.assertEqual(weights["readme"], 100)
+            self.assertEqual(weights["license"], 0)
+            self.assertGreater(result.score, 50)
 
 
 if __name__ == "__main__":
