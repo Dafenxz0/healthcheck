@@ -91,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.fail_under is not None and not 0 <= args.fail_under <= 100:
         raise SystemExit("--fail-under must be between 0 and 100")
+    if args.metrics_days <= 0:
+        raise SystemExit("--metrics-days must be greater than 0")
 
     output_format = "json" if args.json else args.format
 

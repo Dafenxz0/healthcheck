@@ -160,6 +160,10 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertIn("Commits by week:", mocked_print.call_args.args[0])
 
+    def test_metrics_days_rejects_non_positive_values(self) -> None:
+        with self.assertRaises(SystemExit):
+            main(["--metrics", "--metrics-days", "0"])
+
     def test_metrics_supports_json_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo_path = Path(directory)
