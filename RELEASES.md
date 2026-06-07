@@ -1,12 +1,13 @@
 # Release Notes
 
-## Upcoming
+## 0.2.0
 
-The next release expands `oss-repo-healthcheck` from a simple repository hygiene
+This release expands `oss-repo-healthcheck` from a simple repository hygiene
 checklist into a local maintainer dashboard.
 
 Highlights:
 
+- Windows PowerShell installer for local installs without PyPI publishing.
 - Stable check IDs and categories for easier automation.
 - Category filters for focused governance, automation, quality, release,
   packaging, collaboration, and documentation reviews.

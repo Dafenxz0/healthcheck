@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
+- Added a Windows PowerShell installer that creates a local virtual environment, installs from the GitHub release archive, and creates an `oss-repo-healthcheck.cmd` launcher.
 - Added stable check IDs to make JSON output and configuration easier to consume.
 - Added `.oss-repo-healthcheck.json` support for disabling checks and overriding weights.
 - Added `--config` for using an explicit configuration file.

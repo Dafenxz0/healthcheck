@@ -34,6 +34,24 @@ gate.
 
 ## Install
 
+Windows PowerShell installer:
+
+```powershell
+irm https://raw.githubusercontent.com/Dafenxz0/healthcheck/v0.2.0/install.ps1 | iex
+```
+
+The installer creates a local virtual environment under
+`%LOCALAPPDATA%\oss-repo-healthcheck`, installs the release from GitHub, creates
+an `oss-repo-healthcheck.cmd` launcher, and adds it to your user PATH.
+
+Run the local installer from a cloned checkout:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -PackageUrl .
+```
+
+Install with pip:
+
 ```bash
 pip install oss-repo-healthcheck
 ```
