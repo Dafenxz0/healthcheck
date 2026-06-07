@@ -37,6 +37,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only failing checks while keeping the overall score.",
     )
     parser.add_argument(
+        "--category",
+        action="append",
+        choices=tuple(sorted({check.category for check in list_checks()})),
+        default=[],
+        help="Show checks from one category. Repeat to include multiple categories.",
+    )
+    parser.add_argument(
         "--list-checks",
         action="store_true",
         help="List available check IDs, categories, and default weights, then exit.",
@@ -116,11 +123,17 @@ def main(argv: list[str] | None = None) -> int:
             include_health=args.include_health,
             config_path=args.config,
             only_failures=args.only_failures,
+            categories=tuple(args.category),
         )
         result = audit_repository(Path(args.path), config_path=args.config) if args.include_health else None
     else:
         result = audit_repository(Path(args.path), config_path=args.config)
-        rendered = _render_result(result, output_format=output_format, only_failures=args.only_failures)
+        rendered = _render_result(
+            result,
+            output_format=output_format,
+            only_failures=args.only_failures,
+            categories=tuple(args.category),
+        )
 
     if args.output:
         output_path = Path(args.output)
@@ -136,12 +149,18 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _render_result(result, *, output_format: str, only_failures: bool = False) -> str:
+def _render_result(
+    result,
+    *,
+    output_format: str,
+    only_failures: bool = False,
+    categories: tuple[str, ...] = (),
+) -> str:
     if output_format == "json":
-        return json.dumps(result.to_dict(only_failures=only_failures), indent=2)
+        return json.dumps(result.to_dict(only_failures=only_failures, categories=categories), indent=2)
     if output_format == "markdown":
-        return _format_markdown_report(result, only_failures=only_failures)
-    return _format_report(result, only_failures=only_failures)
+        return _format_markdown_report(result, only_failures=only_failures, categories=categories)
+    return _format_report(result, only_failures=only_failures, categories=categories)
 
 
 def _render_metrics_report(
@@ -152,12 +171,16 @@ def _render_metrics_report(
     include_health: bool = False,
     config_path: str | None = None,
     only_failures: bool = False,
+    categories: tuple[str, ...] = (),
 ) -> str:
     activity = collect_commit_activity(path, days=days)
     if output_format == "json":
         payload: dict[str, object] = {"activity": activity.to_dict()}
         if include_health:
-            payload["health"] = audit_repository(path, config_path=config_path).to_dict(only_failures=only_failures)
+            payload["health"] = audit_repository(path, config_path=config_path).to_dict(
+                only_failures=only_failures,
+                categories=categories,
+            )
         return json.dumps(payload, indent=2)
 
     metrics = render_markdown_metrics(activity) if output_format == "markdown" else render_text_metrics(activity)
@@ -165,23 +188,33 @@ def _render_metrics_report(
         return metrics
 
     health = audit_repository(path, config_path=config_path)
-    health_report = _render_result(health, output_format=output_format, only_failures=only_failures)
+    health_report = _render_result(
+        health,
+        output_format=output_format,
+        only_failures=only_failures,
+        categories=categories,
+    )
     separator = "\n\n---\n\n" if output_format == "markdown" else "\n\n" + "=" * 72 + "\n\n"
     return health_report + separator + metrics
 
 
-def _format_report(result, *, only_failures: bool = False) -> str:
+def _format_report(result, *, only_failures: bool = False, categories: tuple[str, ...] = ()) -> str:
     lines = [f"oss-repo-healthcheck: {result.path}", ""]
     checks = result.checks
+    if categories:
+        selected = set(categories)
+        checks = tuple(check for check in checks if check.category in selected)
     if only_failures:
         checks = tuple(check for check in checks if not check.passed)
     if not checks:
-        lines.append("No failing checks.")
+        lines.append("No matching checks.")
     for check in checks:
         label = check.status.upper()
         lines.append(f"{label:<5} [{check.category}] {check.name}")
         lines.append(f"      {check.detail}")
     lines.append("")
+    if categories:
+        lines.append(f"Category filter: {', '.join(categories)}")
     if result.config_path:
         lines.append(f"Config: {result.config_path}")
     lines.append(f"Checks: {result.passed_count} passed, {result.failed_count} failed")
@@ -189,8 +222,11 @@ def _format_report(result, *, only_failures: bool = False) -> str:
     return "\n".join(lines)
 
 
-def _format_markdown_report(result, *, only_failures: bool = False) -> str:
+def _format_markdown_report(result, *, only_failures: bool = False, categories: tuple[str, ...] = ()) -> str:
     checks = result.checks
+    if categories:
+        selected = set(categories)
+        checks = tuple(check for check in checks if check.category in selected)
     if only_failures:
         checks = tuple(check for check in checks if not check.passed)
 
@@ -202,6 +238,8 @@ def _format_markdown_report(result, *, only_failures: bool = False) -> str:
     ]
     if result.config_path:
         lines.append(f"**Config:** `{result.config_path}`")
+    if categories:
+        lines.append(f"**Category filter:** `{', '.join(categories)}`")
     lines.extend(
         [
             "",

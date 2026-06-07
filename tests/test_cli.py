@@ -43,6 +43,14 @@ class CliTests(unittest.TestCase):
             self.assertIn("License", report)
             self.assertNotIn("PASS  README documentation", report)
 
+    def test_category_filters_human_report_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            report = _format_report(audit_repository(directory), categories=("governance",))
+
+            self.assertIn("[governance] License", report)
+            self.assertIn("Category filter: governance", report)
+            self.assertNotIn("[documentation] README documentation", report)
+
     def test_only_failures_filters_json_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo_path = Path(directory)
@@ -53,6 +61,14 @@ class CliTests(unittest.TestCase):
 
             self.assertIn("License", names)
             self.assertNotIn("README documentation", names)
+
+    def test_category_filters_json_report_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = audit_repository(directory).to_dict(categories=("automation",))
+            categories = {check["category"] for check in result["checks"]}
+
+            self.assertEqual(categories, {"automation"})
+            self.assertEqual(result["failed"], 13)
 
     def test_report_includes_check_counts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -93,6 +109,14 @@ class CliTests(unittest.TestCase):
             self.assertIn("| Status | Category | Check | Detail |", report)
             self.assertIn("| FAIL | governance | License | Add a clear open-source license. |", report)
             self.assertNotIn("README documentation", report)
+
+    def test_category_filters_markdown_report_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            report = _format_markdown_report(audit_repository(directory), categories=("release",))
+
+            self.assertIn("**Category filter:** `release`", report)
+            self.assertIn("| FAIL | release | Changelog |", report)
+            self.assertNotIn("| FAIL | governance | License |", report)
 
     def test_markdown_format_is_available_from_cli(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -188,6 +212,20 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertIn("oss-repo-healthcheck:", report)
             self.assertIn("oss-repo-healthcheck activity:", report)
+
+    def test_metrics_include_health_respects_category_filter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo_path = Path(directory)
+
+            with patch("oss_repo_healthcheck.__main__.collect_commit_activity", return_value=_activity(repo_path)):
+                with patch("builtins.print") as mocked_print:
+                    exit_code = main([str(repo_path), "--metrics", "--include-health", "--category", "quality"])
+
+            report = mocked_print.call_args.args[0]
+            self.assertEqual(exit_code, 0)
+            self.assertIn("Category filter: quality", report)
+            self.assertIn("[quality] Tests", report)
+            self.assertNotIn("[governance] License", report)
 
 
 def _complete_repo(repo_path: Path) -> Path:

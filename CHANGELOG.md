@@ -8,6 +8,7 @@
 - Added `--format markdown` for pull request and issue comments.
 - Added check pass/fail counts to text and JSON reports.
 - Added check categories and category summaries in JSON output.
+- Added `--category` filters for focused category-specific reports.
 - Added checks for CODEOWNERS, issue templates, pull request templates, and dependency update automation.
 - Added `--list-checks`, `--init-config`, and `--output` for maintainer workflows.
 - Added GitHub collaboration templates and Dependabot configuration to this repository.

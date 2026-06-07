@@ -72,6 +72,14 @@ class AuditRepositoryTests(unittest.TestCase):
             self.assertIn("governance", result.categories)
             self.assertGreaterEqual(result.categories["governance"]["total"], 1)
 
+    def test_to_dict_can_filter_checks_by_category(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload = audit_repository(directory).to_dict(categories=("governance",))
+            categories = {check["category"] for check in payload["checks"]}
+
+            self.assertEqual(categories, {"governance"})
+            self.assertEqual(payload["score"], 0)
+
     def test_audit_can_disable_checks_from_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo_path = Path(directory)

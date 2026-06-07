@@ -67,8 +67,11 @@ class AuditResult:
                 category["failed"] += 1
         return summary
 
-    def to_dict(self, *, only_failures: bool = False) -> dict[str, object]:
+    def to_dict(self, *, only_failures: bool = False, categories: tuple[str, ...] = ()) -> dict[str, object]:
         checks = self.checks
+        if categories:
+            selected = set(categories)
+            checks = tuple(check for check in checks if check.category in selected)
         if only_failures:
             checks = tuple(check for check in checks if not check.passed)
         return {

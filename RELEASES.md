@@ -8,6 +8,8 @@ checklist into a local maintainer dashboard.
 Highlights:
 
 - Stable check IDs and categories for easier automation.
+- Category filters for focused governance, automation, quality, release,
+  packaging, collaboration, and documentation reviews.
 - Configurable weights and disabled checks through JSON config files.
 - Additional governance and collaboration checks for CODEOWNERS, issue
   templates, pull request templates, and dependency update automation.

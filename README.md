@@ -78,6 +78,18 @@ Show only failing checks:
 oss-repo-healthcheck --only-failures
 ```
 
+Focus the displayed checks on one category while keeping the overall score:
+
+```bash
+oss-repo-healthcheck --category governance
+```
+
+Repeat the flag to include multiple categories:
+
+```bash
+oss-repo-healthcheck --category governance --category automation
+```
+
 Print machine-readable JSON:
 
 ```bash
@@ -157,6 +169,8 @@ pass, not a replacement for human review.
   contributor-facing summaries.
 - **Output files:** persistent reports such as `repo-report.md` or generated CI
   artifacts.
+- **Category filters:** focused views for governance, automation, quality,
+  release, packaging, collaboration, or documentation reviews.
 
 The combined report mode is useful when you want a single artifact with both
 repository readiness and recent project activity:
